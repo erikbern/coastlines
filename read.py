@@ -8,8 +8,11 @@ def read_poly(shapes):
         shape = next(shapes)
         if p is None:
             p = shape.points[0]
+        last_q = p
         for q in shape.points[:-1]:
-            yield q
+            if q != last_q:
+                yield q
+            last_q = q
         if shape.points[-1] == p:
             # finally closed
             break
@@ -17,6 +20,7 @@ def read_poly(shapes):
 
 def read_polys():
     sf = shapefile.Reader('coastlines-split-4326/lines')
+    print('%d records...' % sf.numRecords)
     shapes = sf.iterShapes()
     points = []
     while True:
@@ -61,10 +65,14 @@ def it_circular_triplets(it):
 
 all_time_best_delta = 0.0
 
+n = 0
 for points1, points2 in zip(read_polys(), read_polys()):
     # We need to read each shape twice
     # - first to calculate angular sum and distance
     # - second to find the windingness
+    n += 1
+    if n % 1000 == 0:
+        print('%d...' % n)
     total_outer_angle, total_distance, total_count = 0, 0, 0
     for p, q, r in it_circular_triplets(points1):
         a, b, c = [ll_to_3d(lat, lon) for lon, lat in (p, q, r)]
