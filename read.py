@@ -92,7 +92,7 @@ for points1, points2 in zip(read_polys(), read_polys()):
         outer_angle = spherical_angle(a, b, c)
         adjusted_outer_angle = partial_outer_angle - (partial_distance / total_distance) * total_outer_angle
         if abs(adjusted_outer_angle) >= math.pi*3:
-            lon, lat = r
+            lon, lat = (numpy.array(p) + numpy.array(q)) / 2
             print('%f (%d, %f):      %f, %f' % (adjusted_outer_angle, total_count, total_outer_angle, lat, lon))
         partial_distance += dist(a, b)
         partial_outer_angle += outer_angle
