@@ -23,7 +23,13 @@ def read_polys():
     print('%d records...' % sf.numRecords)
     shapes = sf.iterShapes()
     points = []
+    n = 0
     while True:
+        n += 1
+        if n % 100000 == 0:
+            print('%d...' % n)
+        if n >= sf.numRecords:
+            break # TODO: idk why this is needed
         yield read_poly(shapes)
 
 
@@ -63,38 +69,30 @@ def it_circular_triplets(it):
     yield (b, first_a, first_b)
 
 
-all_time_best_delta = 0.0
-
-n = 0
 for points1, points2 in zip(read_polys(), read_polys()):
     # We need to read each shape twice
     # - first to calculate angular sum and distance
     # - second to find the windingness
-    n += 1
-    if n % 1000 == 0:
-        print('%d...' % n)
-    total_outer_angle, total_distance, total_count = 0, 0, 0
+    total_outer_angle, total_distance, total_count, sum_outer_angle = 0, 0, 0, 0
     for p, q, r in it_circular_triplets(points1):
         a, b, c = [ll_to_3d(lat, lon) for lon, lat in (p, q, r)]
         outer_angle = spherical_angle(a, b, c)
+        sum_outer_angle += total_outer_angle * dist(a, b)
         total_outer_angle += outer_angle
         total_distance += dist(a, b)
         total_count += 1
-    partial_outer_angle, partial_distance = 0, 0
-    min_angle, max_angle = float('inf'), float('-inf')
-    min_coord, max_coord = None, None
+        if dist(a, b) > 1e-3:
+            p_lon, p_lat = p
+            q_lon, q_lat = q
+            print('long distance: %f, %f to %f, %f is %.2fkm' % (p_lat, p_lon, q_lat, q_lon, dist(a, b) / (math.pi/2) * 1e4))
+    average_outer_angle = sum_outer_angle / total_distance - 0.5 * total_outer_angle
+    partial_outer_angle, partial_distance = -average_outer_angle, 0
     for p, q, r in it_circular_triplets(points2):
         a, b, c = [ll_to_3d(lat, lon) for lon, lat in (p, q, r)]
         outer_angle = spherical_angle(a, b, c)
-        partial_outer_angle += outer_angle
-        partial_distance += dist(a, b)
         adjusted_outer_angle = partial_outer_angle - (partial_distance / total_distance) * total_outer_angle
-        if adjusted_outer_angle > max_angle:
-            max_angle, max_coord = adjusted_outer_angle, r
-        if adjusted_outer_angle < min_angle:
-            min_angle, min_coord = adjusted_outer_angle, r
-    if max_angle - min_angle > all_time_best_delta:
-        all_time_best_delta = max_angle - min_angle
-        max_lon, max_lat = max_coord
-        min_lon, min_lat = min_coord
-        print('%f (%d):      %f, %f      %f, %f' % (all_time_best_delta, total_count, min_lat, min_lon, max_lat, max_lon))
+        if abs(adjusted_outer_angle) >= math.pi*3:
+            lon, lat = r
+            print('%f (%d, %f):      %f, %f' % (adjusted_outer_angle, total_count, total_outer_angle, lat, lon))
+        partial_distance += dist(a, b)
+        partial_outer_angle += outer_angle
