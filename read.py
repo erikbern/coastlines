@@ -1,4 +1,5 @@
 import math
+import heapq
 import numpy
 import shapefile
 
@@ -45,6 +46,7 @@ def it_circular_triplets(points):
         yield points[i], points[(i+1)%len(points)], points[(i+2)%len(points)]
 
 
+most_twisted = []
 for points in read_polys():
     # We need to read each shape twice
     # - first to calculate angular sum and distance
@@ -66,12 +68,21 @@ for points in read_polys():
         continue
     average_outer_angle = sum_outer_angle / total_distance - 0.5 * total_outer_angle
     partial_outer_angle, partial_distance = -average_outer_angle, 0
+    max_angle, max_coord = 0, None
     for p, q, r in it_circular_triplets(points):
         a, b, c = [ll_to_3d(lat, lon) for lon, lat in (p, q, r)]
         outer_angle = spherical_angle(a, b, c)
         adjusted_outer_angle = partial_outer_angle - (partial_distance / total_distance) * total_outer_angle
-        if abs(adjusted_outer_angle) >= math.pi * 3:
-            lon, lat = (numpy.array(p) + numpy.array(q)) / 2
-            print('%f (%d, %f):      %f, %f' % (adjusted_outer_angle, total_count, total_outer_angle, lat, lon))
+        if abs(adjusted_outer_angle) > abs(max_angle):
+            max_angle = adjusted_outer_angle
+            max_coord = (numpy.array(p) + numpy.array(q)) / 2
         partial_distance += dist(a, b)
         partial_outer_angle += outer_angle
+    heapq.heappush(most_twisted, (abs(max_angle), max_angle, max_coord))
+    while len(most_twisted) > 100:
+        heapq.heappop(most_twisted)
+
+for _, max_angle, max_coord in sorted(most_twisted, reverse=True):
+    lon, lat = max_coord
+    print('%5.2f %.4f, %.4f' % (max_angle, lat, lon))
+
